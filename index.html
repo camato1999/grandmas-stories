@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Grandma's Story Corner</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<!-- lamejs for in-browser MP3 encoding -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js"></script>
+<style>
+  :root {
+    --cream: #fdf6e9;
+    --warm-white: #fffdf7;
+    --gold: #c8922a;
+    --gold-pale: rgba(200,146,42,0.12);
+    --brown: #5c3d1e;
+    --brown-light: #8b6340;
+    --red: #b84a3a;
+    --green: #3a7a4a;
+    --blue: #2a5a8a;
+    --text: #2a1a0a;
+    --shadow: rgba(90,50,10,0.15);
+    --border: rgba(200,146,42,0.28);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    background-color: var(--cream);
+    background-image:
+      radial-gradient(ellipse at 15% 15%, rgba(200,146,42,0.09) 0%, transparent 55%),
+      radial-gradient(ellipse at 85% 85%, rgba(92,61,30,0.07) 0%, transparent 55%);
+    font-family: 'Lora', Georgia, serif;
+    color: var(--text);
+    min-height: 100vh;
+    padding: 16px 14px 60px;
+  }
+
+  /* ── HEADER ── */
+  header { text-align: center; padding: 24px 16px 20px; border-bottom: 3px double var(--gold); margin-bottom: 22px; }
+  header h1 { font-family: 'Playfair Display', serif; font-size: clamp(1.9rem, 6vw, 3.4rem); color: var(--brown); line-height: 1.2; }
+  header h1 em { color: var(--gold); font-style: italic; }
+  header p { font-size: clamp(1rem, 2.8vw, 1.3rem); color: var(--brown-light); margin-top: 7px; font-style: italic; }
+  .ornament { color: var(--gold); font-size: 1.3rem; letter-spacing: 0.5em; display: block; margin: 5px 0; }
+
+  /* ── SETUP CARDS ── */
+  .setup-card {
+    background: var(--warm-white); border: 2px solid var(--gold);
+    border-radius: 14px; padding: 18px 22px; margin: 0 auto 18px;
+    max-width: 820px; font-size: clamp(1rem, 2.6vw, 1.2rem); line-height: 1.75;
+  }
+  .setup-card.connected { border-color: var(--green); background: #f3fbf5; }
+  .setup-card h3 { font-family: 'Playfair Display', serif; font-size: clamp(1.1rem, 3vw, 1.45rem); color: var(--brown); margin-bottom: 10px; }
+  .input-row { display: flex; gap: 10px; margin-top: 11px; flex-wrap: wrap; }
+  .input-row input {
+    flex: 1; min-width: 180px; padding: 13px 16px;
+    font-family: 'Lora', serif; font-size: clamp(1rem, 2.5vw, 1.15rem);
+    border: 2px solid var(--border); border-radius: 10px;
+    background: var(--warm-white); color: var(--text);
+  }
+  .input-row input:focus { outline: none; border-color: var(--gold); }
+  .btn-setup {
+    padding: 13px 22px; font-family: 'Playfair Display', serif;
+    font-size: clamp(1rem, 2.5vw, 1.15rem); background: var(--brown);
+    color: var(--cream); border: none; border-radius: 10px; cursor: pointer;
+    transition: background 0.2s; white-space: nowrap;
+  }
+  .btn-setup:hover { background: #3e2610; }
+  .btn-google {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 13px 22px; margin-top: 11px;
+    font-family: 'Lora', serif; font-size: clamp(1rem, 2.6vw, 1.2rem);
+    background: #fff; color: #3c4043; border: 2px solid #dadce0;
+    border-radius: 10px; cursor: pointer; transition: box-shadow 0.2s;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  }
+  .btn-google:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.18); }
+  .status-note { font-size: clamp(0.92rem, 2.3vw, 1.05rem); margin-top: 8px; min-height: 1.4em; }
+  .status-note.ok  { color: var(--green); }
+  .status-note.err { color: var(--red); }
+
+  /* ── TABS ── */
+  .tabs { display: flex; gap: 8px; justify-content: center; margin-bottom: 22px; flex-wrap: wrap; }
+  .tab-btn {
+    font-family: 'Playfair Display', serif; font-size: clamp(1rem, 2.8vw, 1.35rem);
+    padding: 12px 24px; border: 2.5px solid var(--gold);
+    background: transparent; color: var(--brown); border-radius: 50px;
+    cursor: pointer; transition: all 0.22s;
+  }
+  .tab-btn:hover { background: var(--gold-pale); transform: translateY(-2px); }
+  .tab-btn.active { background: var(--brown); color: var(--cream); border-color: var(--brown); box-shadow: 0 4px 14px var(--shadow); }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* ── RECORD PANEL ── */
+  .record-area { max-width: 820px; margin: 0 auto; }
+
+  .status-bar {
+    text-align: center; font-size: clamp(1.1rem, 3vw, 1.45rem);
+    color: var(--brown-light); margin-bottom: 20px; min-height: 2.4em;
+    font-style: italic; line-height: 1.5;
+  }
+  .status-bar.recording  { color: var(--red);  animation: pulse 1.6s ease-in-out infinite; }
+  .status-bar.processing { color: var(--blue); }
+  .status-bar.saved      { color: var(--green); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+  /* THE ONE BIG BUTTON */
+  .big-btn {
+    display: block; width: 100%; max-width: 480px; margin: 0 auto 24px;
+    padding: 34px 18px; font-family: 'Playfair Display', serif;
+    font-size: clamp(1.6rem, 5vw, 2.4rem); font-weight: 700;
+    border: none; border-radius: 22px; cursor: pointer;
+    transition: all 0.24s; letter-spacing: 0.04em;
+    box-shadow: 0 6px 24px var(--shadow); touch-action: manipulation;
+    line-height: 1.25;
+  }
+  .big-btn.start { background: var(--green); color: #fff; }
+  .big-btn.start:hover { background: #2e6a3c; transform: translateY(-3px); box-shadow: 0 10px 30px rgba(58,122,74,.32); }
+  .big-btn.stop  { background: var(--red); color: #fff; animation: glow-red 1.8s ease-in-out infinite; }
+  @keyframes glow-red { 0%,100%{box-shadow:0 6px 22px rgba(184,74,58,.3)} 50%{box-shadow:0 6px 38px rgba(184,74,58,.7)} }
+  .big-btn.stop:hover  { background: #9a3828; transform: translateY(-3px); }
+  .big-btn.working { background: #999; color: #fff; cursor: not-allowed; animation: none; box-shadow: none; transform: none; }
+  .big-btn-sub { display: block; font-size: clamp(.9rem, 2.2vw, 1.1rem); font-family: 'Lora', serif; font-weight: 400; margin-top: 6px; opacity: .85; letter-spacing: 0; }
+
+  /* recording indicators */
+  .rec-indicators { display: none; justify-content: center; align-items: center; gap: 16px; margin-bottom: 16px; }
+  .rec-indicators.visible { display: flex; }
+  .rec-dot { width: 13px; height: 13px; background: var(--red); border-radius: 50%; animation: pulse 1s infinite; }
+  .rec-timer { font-size: clamp(1.1rem, 3vw, 1.45rem); color: var(--red); font-family: 'Playfair Display', serif; letter-spacing: .08em; }
+  .rec-label { font-size: clamp(.95rem, 2.5vw, 1.15rem); color: var(--brown-light); font-style: italic; }
+
+  /* live transcript */
+  .transcript-box {
+    background: var(--warm-white); border: 2px solid var(--border); border-radius: 16px;
+    padding: 24px 28px; min-height: 180px; max-height: 320px; overflow-y: auto;
+    font-size: clamp(1.15rem, 3vw, 1.5rem); line-height: 1.9; color: var(--text);
+    margin-bottom: 18px; box-shadow: inset 0 2px 8px rgba(200,146,42,.05);
+    scroll-behavior: smooth; -webkit-overflow-scrolling: touch;
+  }
+  .placeholder { color: #c0a882; font-style: italic; }
+  .interim-text { color: #a08060; font-style: italic; }
+
+  /* processing box */
+  .processing-box { display: none; background: var(--warm-white); border: 2px solid var(--gold); border-radius: 16px; padding: 32px 28px; text-align: center; margin-bottom: 18px; }
+  .processing-box.visible { display: block; }
+  .spinner { width: 52px; height: 52px; border: 5px solid rgba(200,146,42,.2); border-top-color: var(--gold); border-radius: 50%; animation: spin .9s linear infinite; margin: 0 auto 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .processing-title { font-family: 'Playfair Display', serif; font-size: clamp(1.15rem, 3vw, 1.5rem); color: var(--brown); margin-bottom: 6px; }
+  .processing-sub { font-size: clamp(.95rem, 2.5vw, 1.15rem); color: var(--brown-light); font-style: italic; margin-bottom: 18px; }
+  .processing-steps { text-align: left; display: inline-block; }
+  .processing-steps li { font-size: clamp(.95rem, 2.5vw, 1.15rem); color: #bbb; margin-bottom: 8px; list-style: none; padding-left: 0; transition: color .3s; }
+  .processing-steps li.active { color: var(--blue); font-style: italic; }
+  .processing-steps li.done   { color: var(--green); }
+
+  /* new recording btn (shown after save) */
+  .new-story-btn {
+    display: none; width: 100%; max-width: 380px; margin: 0 auto;
+    padding: 18px; font-family: 'Playfair Display', serif;
+    font-size: clamp(1.1rem, 3vw, 1.4rem); background: var(--brown); color: var(--cream);
+    border: none; border-radius: 14px; cursor: pointer; transition: all .22s;
+    box-shadow: 0 4px 14px var(--shadow); touch-action: manipulation;
+  }
+  .new-story-btn.visible { display: block; }
+  .new-story-btn:hover { background: #3e2610; transform: translateY(-2px); }
+
+  /* ── STORIES PANEL ── */
+  .stories-area { max-width: 820px; margin: 0 auto; }
+  .stories-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .stories-title { font-family: 'Playfair Display', serif; font-size: clamp(1.35rem, 4vw, 1.9rem); color: var(--brown); }
+  .story-count { font-size: clamp(.95rem, 2.4vw, 1.15rem); color: var(--brown-light); font-style: italic; }
+  .no-stories { text-align: center; padding: 52px 18px; color: var(--brown-light); font-style: italic; font-size: clamp(1.05rem, 3vw, 1.45rem); }
+
+  .story-card { background: var(--warm-white); border: 1.5px solid var(--border); border-radius: 16px; padding: 24px 28px; margin-bottom: 18px; box-shadow: 0 3px 12px var(--shadow); transition: transform .2s, box-shadow .2s; }
+  .story-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--shadow); }
+  .story-card-header { margin-bottom: 13px; border-bottom: 1px solid var(--border); padding-bottom: 13px; }
+  .story-title-text { font-family: 'Playfair Display', serif; font-size: clamp(1.15rem, 3.2vw, 1.55rem); color: var(--brown); font-weight: 700; margin-bottom: 5px; line-height: 1.35; }
+  .story-meta { font-size: clamp(.9rem, 2.3vw, 1.05rem); color: var(--brown-light); font-style: italic; }
+  .drive-badge { display: inline-block; background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; border-radius: 20px; padding: 2px 10px; font-size: .82em; margin-left: 8px; vertical-align: middle; }
+  .story-text { font-size: clamp(1.05rem, 2.8vw, 1.4rem); line-height: 1.92; color: var(--text); white-space: pre-wrap; }
+  .story-audio { margin-top: 14px; }
+  .audio-label { font-size: clamp(.9rem, 2.3vw, 1.05rem); color: var(--brown-light); margin-bottom: 5px; font-style: italic; }
+  .story-audio audio { width: 100%; border-radius: 8px; }
+  .story-actions { display: flex; gap: 9px; margin-top: 14px; flex-wrap: wrap; }
+  .btn-small { padding: 10px 18px; font-family: 'Lora', serif; font-size: clamp(.9rem, 2.3vw, 1.1rem); border-radius: 10px; cursor: pointer; transition: all .2s; border: 2px solid; touch-action: manipulation; }
+  .btn-dl       { background: transparent; color: var(--brown); border-color: var(--brown); }
+  .btn-dl:hover { background: var(--brown); color: var(--cream); }
+  .btn-dl-audio       { background: transparent; color: var(--blue); border-color: var(--blue); }
+  .btn-dl-audio:hover { background: var(--blue); color: #fff; }
+  .btn-delete       { background: transparent; color: var(--red); border-color: var(--red); }
+  .btn-delete:hover { background: var(--red); color: #fff; }
+
+  /* ── HELP ── */
+  .help-area { max-width: 700px; margin: 0 auto; }
+  .help-card { background: var(--warm-white); border: 1.5px solid var(--border); border-radius: 16px; padding: 24px 28px; margin-bottom: 18px; }
+  .help-card h3 { font-family: 'Playfair Display', serif; font-size: clamp(1.25rem, 3.5vw, 1.7rem); color: var(--brown); margin-bottom: 12px; }
+  .help-card p, .help-card li { font-size: clamp(1rem, 2.7vw, 1.3rem); line-height: 1.85; color: var(--text); margin-bottom: 8px; }
+  .help-card ul, .help-card ol { padding-left: 1.3em; }
+  .step-num { display: inline-block; background: var(--gold); color: #fff; width: 1.85em; height: 1.85em; line-height: 1.85em; text-align: center; border-radius: 50%; font-weight: 700; margin-right: 9px; font-size: .86em; }
+  .cost-box { background: #f0faf2; border: 1.5px solid #3a7a4a; border-radius: 12px; padding: 14px 18px; margin-top: 12px; font-size: clamp(.98rem, 2.5vw, 1.2rem); color: #2a5a35; line-height: 1.85; }
+
+  /* ── TOAST ── */
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(120px); background: var(--brown); color: var(--cream); padding: 15px 30px; border-radius: 50px; font-size: clamp(1rem, 2.8vw, 1.3rem); font-family: 'Lora', serif; box-shadow: 0 8px 26px rgba(0,0,0,.22); transition: transform .4s cubic-bezier(.34,1.56,.64,1); z-index: 9999; text-align: center; max-width: 92vw; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  footer { text-align: center; padding: 26px 16px 14px; border-top: 1px solid var(--border); margin-top: 36px; color: var(--brown-light); font-style: italic; font-size: clamp(.9rem, 2.3vw, 1.1rem); }
+
+  @media (max-width: 480px) {
+    body { padding: 10px 10px 50px; }
+    .story-card, .transcript-box, .help-card, .setup-card { padding: 18px 15px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="ornament">✦ ✦ ✦</span>
+  <h1>Grandma's <em>Story Corner</em></h1>
+  <p>Every story deserves to be remembered</p>
+  <span class="ornament">✦ ✦ ✦</span>
+</header>
+
+<!-- ── SETUP: OpenAI ── -->
+<div class="setup-card" id="openaiCard">
+  <h3>🔑 Step 1 — OpenAI Key &nbsp;<span id="openaiCheck" style="display:none;color:var(--green)">✓ Saved</span></h3>
+  <small style="color:var(--brown-light)">For accurate transcription. Get yours at <a href="https://platform.openai.com/api-keys" target="_blank" style="color:var(--blue)">platform.openai.com/api-keys</a></small>
+  <div class="input-row">
+    <input type="password" id="apiKeyInput" placeholder="sk-..." autocomplete="off">
+    <button class="btn-setup" onclick="saveApiKey()">Save</button>
+  </div>
+  <div class="status-note" id="apiNote"></div>
+</div>
+
+<!-- ── SETUP: Google Drive ── -->
+<div class="setup-card" id="driveCard">
+  <h3 id="driveTitle">☁️ Step 2 — Connect Google Drive</h3>
+  <p style="font-size:clamp(.95rem,2.5vw,1.15rem);color:var(--brown-light)">Stories back up automatically to a "Grandma's Stories" folder — safe forever, accessible from anywhere.</p>
+  <button class="btn-google" onclick="startGoogleAuth()" id="googleBtn">
+    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+    Sign in with Google
+  </button>
+  <div class="status-note" id="driveNote"></div>
+</div>
+
+<!-- ── TABS ── -->
+<nav class="tabs">
+  <button class="tab-btn active" onclick="showTab('record',this)">🎙️ Tell a Story</button>
+  <button class="tab-btn" onclick="showTab('stories',this)">📖 My Stories</button>
+  <button class="tab-btn" onclick="showTab('help',this)">❓ How To Use</button>
+</nav>
+
+<!-- ══════════ RECORD ══════════ -->
+<div id="tab-record" class="panel active">
+  <div class="record-area">
+
+    <div id="statusBar" class="status-bar">
+      Press the green button and start talking!
+    </div>
+
+    <div class="rec-indicators" id="recIndicators">
+      <div class="rec-dot"></div>
+      <span class="rec-timer" id="recTimer">0:00</span>
+      <span class="rec-label">Recording your voice…</span>
+    </div>
+
+    <!-- THE ONE BIG BUTTON -->
+    <button id="mainBtn" class="big-btn start" onclick="handleMainBtn()">
+      🎙️ &nbsp;START TALKING
+      <span class="big-btn-sub">Tap to begin your story</span>
+    </button>
+
+    <!-- live transcript -->
+    <div class="transcript-box" id="transcriptBox">
+      <span class="placeholder" id="placeholder">Your words will appear here as you speak…</span>
+      <span id="finalText"></span>
+      <span id="interimText" class="interim-text"></span>
+    </div>
+
+    <!-- processing -->
+    <div class="processing-box" id="processingBox">
+      <div class="spinner"></div>
+      <div class="processing-title">Saving your story…</div>
+      <div class="processing-sub">This takes about 20–40 seconds. Please don't close the app!</div>
+      <ul class="processing-steps" id="procSteps">
+        <li id="s-mp3">🎵 Converting to MP3…</li>
+        <li id="s-transcribe">🎙️ Transcribing your voice…</li>
+        <li id="s-title">✨ Writing your story title…</li>
+        <li id="s-drive">☁️ Backing up to Google Drive…</li>
+        <li id="s-local">💾 Saving to this device…</li>
+      </ul>
+    </div>
+
+    <!-- ready to tell another -->
+    <button class="new-story-btn" id="newStoryBtn" onclick="resetForNewStory()">
+      🎙️ &nbsp;Tell Another Story
+    </button>
+
+  </div>
+</div>
+
+<!-- ══════════ STORIES ══════════ -->
+<div id="tab-stories" class="panel">
+  <div class="stories-area">
+    <div class="stories-header">
+      <span class="stories-title">📚 Your Saved Stories</span>
+      <span class="story-count" id="storyCount"></span>
+    </div>
+    <div id="storiesList"></div>
+  </div>
+</div>
+
+<!-- ══════════ HELP ══════════ -->
+<div id="tab-help" class="panel">
+  <div class="help-area">
+
+    <div class="help-card">
+      <h3>📖 How to Tell a Story — Just Two Steps!</h3>
+      <ol style="list-style:none;padding-left:0">
+        <li style="margin-bottom:14px"><span class="step-num">1</span>Press the big <strong>green button</strong> and start talking. Take your time — laugh, pause, tell it your way!</li>
+        <li style="margin-bottom:14px"><span class="step-num">2</span>When you're done, press the <strong>red button</strong>. That's it! It saves everything automatically.</li>
+      </ol>
+      <p style="margin-top:8px;color:var(--brown-light);font-style:italic">You don't need to do anything else. The app types out what you said and backs it all up by itself.</p>
+    </div>
+
+    <div class="help-card">
+      <h3>☁️ Where Your Stories Go</h3>
+      <p>Every story is saved in <strong>two places</strong> automatically:</p>
+      <ul style="margin-top:10px">
+        <li>Right inside this app — tap "My Stories" to read and listen</li>
+        <li>In a folder called <strong>"Grandma's Stories"</strong> in your Google Drive, with both the text and an MP3 recording of your voice</li>
+      </ul>
+      <p style="margin-top:10px">Your family can listen and read from anywhere in the world!</p>
+    </div>
+
+    <div class="help-card">
+      <h3>📱 Add to Your iPhone Home Screen</h3>
+      <p>Open this page in <strong>Chrome</strong> on your iPhone. Tap the Share button (the box with an arrow) → tap <em>"Add to Home Screen"</em> → tap Add. It will appear as an app on your phone!</p>
+    </div>
+
+    <div class="help-card">
+      <h3>🖥️ Add to Your Desktop (Computer)</h3>
+      <p>In Chrome: click the <strong>⋮</strong> menu in the top-right → <em>More tools</em> → <em>Create shortcut</em> → check <em>"Open as window"</em> → Create.</p>
+    </div>
+
+    <div class="help-card">
+      <h3>💰 What Does it Cost?</h3>
+      <div class="cost-box">
+        ✅ About <strong>$0.006 per minute</strong> of talking<br>
+        ✅ 1 full hour of stories ≈ <strong>36 cents</strong><br>
+        ✅ 10 hours of stories total ≈ <strong>$3.60</strong><br>
+        ✅ Audio files are MP3 — play on any device, anywhere<br>
+        ✅ No new hard drive needed (~50MB per hour)
+      </div>
+    </div>
+
+    <div class="help-card">
+      <h3>🔑 Getting Your OpenAI Key</h3>
+      <ul>
+        <li>Go to <strong>platform.openai.com</strong> and create a free account</li>
+        <li>Add a small amount of credit (e.g. $5 — lasts a very long time)</li>
+        <li>Click your name → <em>API Keys</em> → <em>Create new secret key</em></li>
+        <li>Copy it and paste into Step 1 at the top of this page</li>
+        <li>You only ever need to do this once</li>
+      </ul>
+    </div>
+
+    <div class="help-card">
+      <h3>🔑 Setting Up Google Drive (one time)</h3>
+      <ul>
+        <li>Go to <strong>console.cloud.google.com</strong>, create a free project called "Grandma Stories"</li>
+        <li>Enable the <strong>Google Drive API</strong></li>
+        <li>Create an <strong>OAuth 2.0 Client ID</strong> (Web application type)</li>
+        <li>Add your file's URL to Authorized JavaScript Origins</li>
+        <li>Paste the Client ID into the <code>GOOGLE_CLIENT_ID</code> line in this file</li>
+        <li>Then click "Sign in with Google" — done forever!</li>
+      </ul>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<footer>Made with love &nbsp;♥&nbsp; Every story matters</footer>
+
+<!-- Google Identity Services -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+//  CONFIG — replace with your real Google Client ID
+// ══════════════════════════════════════════════════════════════════
+const GOOGLE_CLIENT_ID = '533517873778-tlt0qabhtblg56cg1uqebu7j074rp9pn.apps.googleusercontent.com';
+const DRIVE_SCOPE      = 'https://www.googleapis.com/auth/drive.file';
+
+// ══════════════════════════════════════════════════════════════════
+//  KEYS
+// ══════════════════════════════════════════════════════════════════
+const STORIES_KEY  = 'grandma_stories_v4';
+const OPENAI_KEY   = 'grandma_openai_key';
+const GTOKEN_KEY   = 'grandma_gtoken';
+const GFOLDER_KEY  = 'grandma_drive_folder';
+
+// ══════════════════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════════════════
+let isRecording    = false;
+let mediaRecorder  = null;
+let audioChunks    = [];
+let rawAudioBlob   = null;   // original webm/mp4 from browser
+let mp3Blob        = null;   // converted MP3
+let sessionStart   = null;
+let timerInterval  = null;
+let recognition    = null;
+let liveTranscript = '';
+let whisperResult  = null;
+let storyTitle     = null;
+let googleToken    = null;
+let driveFolderId  = null;
+let tokenClient    = null;
+let audioContext   = null;
+
+// ══════════════════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════════════════
+window.addEventListener('load', () => {
+  const oKey = localStorage.getItem(OPENAI_KEY);
+  if (oKey) {
+    document.getElementById('apiKeyInput').value = oKey;
+    document.getElementById('openaiCheck').style.display = '';
+    showNote('apiNote', '✅ Key loaded', 'ok');
+  }
+  const tok = sessionStorage.getItem(GTOKEN_KEY);
+  if (tok) {
+    googleToken   = tok;
+    driveFolderId = sessionStorage.getItem(GFOLDER_KEY);
+    markDriveConnected();
+  }
+  window.onGoogleLibraryLoad = initGoogleAuth;
+  if (!window.SpeechRecognition && !window.webkitSpeechRecognition) {
+    setStatus('⚠️ Please open this page in Google Chrome for voice recording.', '');
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════
+//  OPENAI KEY
+// ══════════════════════════════════════════════════════════════════
+function saveApiKey() {
+  const k = document.getElementById('apiKeyInput').value.trim();
+  if (!k.startsWith('sk-')) { showNote('apiNote','⚠️ Key should start with sk-','err'); return; }
+  localStorage.setItem(OPENAI_KEY, k);
+  document.getElementById('openaiCheck').style.display = '';
+  showNote('apiNote','✅ Key saved!','ok');
+  showToast('OpenAI key saved ✓');
+}
+const getApiKey = () => localStorage.getItem(OPENAI_KEY) || '';
+
+// ══════════════════════════════════════════════════════════════════
+//  GOOGLE AUTH
+// ══════════════════════════════════════════════════════════════════
+function initGoogleAuth() {
+  if (!window.google || GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) return;
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: DRIVE_SCOPE,
+    callback: async (resp) => {
+      if (resp.error) { showNote('driveNote','⚠️ Sign-in failed: '+resp.error,'err'); return; }
+      googleToken = resp.access_token;
+      sessionStorage.setItem(GTOKEN_KEY, googleToken);
+      showNote('driveNote','Setting up your folder…','ok');
+      driveFolderId = await ensureDriveFolder();
+      if (driveFolderId) {
+        sessionStorage.setItem(GFOLDER_KEY, driveFolderId);
+        markDriveConnected();
+        showToast('☁️ Google Drive connected!');
+      }
+    }
+  });
+}
+
+function startGoogleAuth() {
+  if (GOOGLE_CLIENT_ID.includes('YOUR_GOOGLE')) {
+    showNote('driveNote','⚠️ Add your Google Client ID to the file first — see "How To Use"','err');
+    return;
+  }
+  if (!tokenClient) { showNote('driveNote','Google still loading — try again in a moment','err'); return; }
+  tokenClient.requestAccessToken();
+}
+
+function markDriveConnected() {
+  document.getElementById('driveCard').classList.add('connected');
+  document.getElementById('driveTitle').innerHTML = '☁️ Google Drive Connected <span style="color:var(--green)">✓</span>';
+  const btn = document.getElementById('googleBtn');
+  btn.innerHTML = '✅ &nbsp;Signed In'; btn.disabled = true; btn.style.opacity = '.7';
+  showNote('driveNote','✅ Stories will auto-backup to "Grandma\'s Stories" in Drive','ok');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DRIVE API HELPERS
+// ══════════════════════════════════════════════════════════════════
+async function driveApi(path, method='GET', body=null) {
+  const headers = { 'Authorization': 'Bearer ' + googleToken };
+  let fetchBody = null;
+  if (body) { headers['Content-Type'] = 'application/json'; fetchBody = JSON.stringify(body); }
+  const r = await fetch('https://www.googleapis.com/drive/v3/' + path, { method, headers, body: fetchBody });
+  if (!r.ok) throw new Error('Drive '+r.status);
+  return r.json();
+}
+
+async function driveUpload(name, blob, mimeType, folderId) {
+  const boundary = 'gstory_' + Date.now();
+  const meta     = JSON.stringify({ name, parents: [folderId], mimeType });
+  const enc      = new TextEncoder();
+  const parts    = [
+    enc.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${mimeType}\r\n\r\n`),
+    await blob.arrayBuffer(),
+    enc.encode(`\r\n--${boundary}--`)
+  ];
+  const full = new Blob(parts);
+  const r = await fetch(
+    'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+    { method:'POST', headers:{ 'Authorization':'Bearer '+googleToken, 'Content-Type':`multipart/related; boundary=${boundary}` }, body: full }
+  );
+  if (!r.ok) throw new Error('Upload '+r.status);
+  return r.json();
+}
+
+async function ensureDriveFolder() {
+  try {
+    const q = encodeURIComponent("name='Grandma\\'s Stories' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    const res = await driveApi(`files?q=${q}&fields=files(id)`);
+    if (res.files?.length) return res.files[0].id;
+    const created = await driveApi('files', 'POST', { name:"Grandma's Stories", mimeType:'application/vnd.google-apps.folder' });
+    return created.id;
+  } catch(e) { console.error('Folder:', e); return null; }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════════════════════════
+function showTab(name, btn) {
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  if (name === 'stories') renderStories();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MAIN BUTTON HANDLER
+// ══════════════════════════════════════════════════════════════════
+function handleMainBtn() {
+  if (!isRecording) startRecording();
+  else              stopAndSave();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  START RECORDING
+// ══════════════════════════════════════════════════════════════════
+async function startRecording() {
+  if (!getApiKey()) { showToast('⚠️ Please add your OpenAI key first (Step 1 above)'); return; }
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio:{ echoCancellation:true, noiseSuppression:true } });
+  } catch(e) {
+    showToast('🎙️ Please allow microphone access when Chrome asks');
+    return;
+  }
+
+  // Store audio context for MP3 conversion later
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  audioChunks = []; rawAudioBlob = null; mp3Blob = null;
+  const mimeType =
+    MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' :
+    MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' :
+    MediaRecorder.isTypeSupported('audio/mp4')  ? 'audio/mp4'  : '';
+  mediaRecorder = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+  mediaRecorder.ondataavailable = e => { if (e.data.size>0) audioChunks.push(e.data); };
+  mediaRecorder.start(1000);
+
+  liveTranscript = '';
+  setupLiveSpeech();
+
+  isRecording   = true;
+  sessionStart  = new Date();
+
+  // UI
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('finalText').textContent = '';
+  document.getElementById('interimText').textContent = '';
+  document.getElementById('transcriptBox').style.display = 'block';
+  document.getElementById('processingBox').classList.remove('visible');
+  document.getElementById('newStoryBtn').classList.remove('visible');
+
+  const btn = document.getElementById('mainBtn');
+  btn.className = 'big-btn stop';
+  btn.innerHTML = '⏹️ &nbsp;STOP &amp; SAVE<span class="big-btn-sub">Tap when you\'re done — it saves automatically</span>';
+
+  document.getElementById('recIndicators').classList.add('visible');
+  setStatus('🔴 Recording… just talk naturally! Tap STOP when done.', 'recording');
+  startTimer();
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  STOP & AUTO-SAVE
+// ══════════════════════════════════════════════════════════════════
+function stopAndSave() {
+  isRecording = false;
+  stopTimer();
+  if (recognition) { try { recognition.stop(); } catch(e){} recognition = null; }
+
+  // Lock button
+  const btn = document.getElementById('mainBtn');
+  btn.className = 'big-btn working';
+  btn.innerHTML = '⏳ &nbsp;Saving your story…<span class="big-btn-sub">Please wait — don\'t close the app!</span>';
+
+  document.getElementById('recIndicators').classList.remove('visible');
+  document.getElementById('transcriptBox').style.display = 'none';
+  document.getElementById('processingBox').classList.add('visible');
+  setStatus('Saving your story — this takes about 30 seconds…', 'processing');
+
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+    mediaRecorder.onstop = () => {
+      rawAudioBlob = new Blob(audioChunks, { type: mediaRecorder.mimeType || 'audio/webm' });
+      mediaRecorder.stream.getTracks().forEach(t=>t.stop());
+      runFullSavePipeline();
+    };
+    mediaRecorder.stop();
+  } else {
+    runFullSavePipeline();
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  FULL SAVE PIPELINE (MP3 → Whisper → Title → Drive → Local)
+// ══════════════════════════════════════════════════════════════════
+async function runFullSavePipeline() {
+  const apiKey = getApiKey();
+  const now    = new Date();
+  const dur    = sessionStart ? Math.round((now - sessionStart)/60000) : null;
+
+  // ── 1. Convert to MP3 ──────────────────────────────────────────
+  stepActive('s-mp3');
+  try {
+    mp3Blob = await convertToMp3(rawAudioBlob);
+  } catch(e) {
+    console.warn('MP3 conversion failed, using original:', e);
+    mp3Blob = rawAudioBlob; // fallback
+  }
+  stepDone('s-mp3');
+
+  // ── 2. Whisper transcription ───────────────────────────────────
+  stepActive('s-transcribe');
+  if (apiKey) {
+    try {
+      const ext  = mp3Blob.type?.includes('mp4') ? 'recording.mp4' : 'recording.mp3';
+      const form = new FormData();
+      form.append('file', mp3Blob, ext);
+      form.append('model', 'whisper-1');
+      form.append('language', 'en');
+      const wr = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+        method:'POST', headers:{'Authorization':'Bearer '+apiKey}, body: form
+      });
+      if (wr.ok) whisperResult = ((await wr.json()).text||'').trim();
+      else throw new Error(await wr.text());
+    } catch(e) {
+      console.warn('Whisper error:', e);
+      whisperResult = liveTranscript.trim() || '(transcription unavailable)';
+    }
+  } else {
+    whisperResult = liveTranscript.trim() || '(no transcript — add OpenAI key)';
+  }
+  stepDone('s-transcribe');
+
+  // ── 3. Generate title ──────────────────────────────────────────
+  stepActive('s-title');
+  if (apiKey && whisperResult) {
+    try {
+      const tr = await fetch('https://api.openai.com/v1/chat/completions', {
+        method:'POST',
+        headers:{'Authorization':'Bearer '+apiKey,'Content-Type':'application/json'},
+        body: JSON.stringify({
+          model:'gpt-4o-mini', max_tokens:80,
+          messages:[
+            { role:'system', content:`Write short, warm, descriptive titles for personal stories told by a 92-year-old woman.
+Extract vivid details: location, era/year, her age, names, the core event or memory.
+Examples:
+- "The Night the Barn Caught Fire — Kentucky, 1952"
+- "Meeting Grandpa at the Boardwalk — Atlantic City, Age 19"
+- "First Day Teaching in a One-Room Schoolhouse — 1958"
+- "Baking Christmas Cookies with Mama — 1940s"
+Under 12 words. No surrounding quotes in your answer.`},
+            { role:'user', content:`Title this story:\n\n${whisperResult.slice(0,1500)}` }
+          ]
+        })
+      });
+      if (tr.ok) storyTitle = ((await tr.json()).choices?.[0]?.message?.content||'').trim().replace(/^["']|["']$/g,'');
+      else storyTitle = fallbackTitle(now);
+    } catch(e) { storyTitle = fallbackTitle(now); }
+  } else {
+    storyTitle = fallbackTitle(now);
+  }
+  stepDone('s-title');
+
+  // ── 4. Google Drive backup ─────────────────────────────────────
+  let backedUp = false;
+  if (googleToken && driveFolderId) {
+    stepActive('s-drive');
+    try {
+      const safe   = safeFilename(storyTitle);
+      const dateStr = now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+      const timeStr = now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+      const txtContent = `${storyTitle}\n${dateStr} at ${timeStr}\n${'─'.repeat(60)}\n\n${whisperResult}\n`;
+      await Promise.allSettled([
+        driveUpload(safe+'.txt',  new Blob([txtContent],{type:'text/plain'}), 'text/plain',  driveFolderId),
+        mp3Blob ? driveUpload(safe+'.mp3', mp3Blob, 'audio/mpeg', driveFolderId) : Promise.resolve()
+      ]);
+      backedUp = true;
+    } catch(e) { console.warn('Drive upload:', e); }
+    stepDone('s-drive');
+  } else {
+    document.getElementById('s-drive').style.display = 'none';
+  }
+
+  // ── 5. Save locally ────────────────────────────────────────────
+  stepActive('s-local');
+  let audioB64 = null;
+  if (mp3Blob) {
+    try { audioB64 = await blobToBase64(mp3Blob); } catch(e){}
+  }
+
+  const story = {
+    id: Date.now(), title: storyTitle,
+    date: now.toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'}),
+    time: now.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}),
+    timestamp: now.toISOString(), duration: dur,
+    text: whisperResult || '', audioB64, audioMime: 'audio/mpeg', backedUp
+  };
+
+  const stories = getStories();
+  stories.unshift(story);
+  try {
+    localStorage.setItem(STORIES_KEY, JSON.stringify(stories));
+  } catch(e) {
+    // too large — drop audio and try again
+    story.audioB64 = null; stories[0] = story;
+    try { localStorage.setItem(STORIES_KEY, JSON.stringify(stories)); } catch(e2){}
+    if (mp3Blob) triggerDownload(mp3Blob, safeFilename(storyTitle)+'.mp3');
+    showToast('Audio was large — downloaded as MP3 separately!');
+  }
+  stepDone('s-local');
+
+  // ── Done! ──────────────────────────────────────────────────────
+  const driveMsg = backedUp ? ' & backed up to Google Drive ☁️' : '';
+  setStatus(`✅ "${storyTitle}" — saved${driveMsg}!`, 'saved');
+
+  const btn = document.getElementById('mainBtn');
+  btn.style.display = 'none';
+  document.getElementById('processingBox').classList.remove('visible');
+  document.getElementById('newStoryBtn').classList.add('visible');
+
+  showToast(`✨ Saved: "${storyTitle}"`);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  MP3 CONVERSION (lamejs)
+// ══════════════════════════════════════════════════════════════════
+async function convertToMp3(blob) {
+  if (!window.lamejs) throw new Error('lamejs not loaded');
+
+  // Decode audio
+  const arrayBuf  = await blob.arrayBuffer();
+  const ctx       = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+  const audioBuf  = await ctx.decodeAudioData(arrayBuf);
+  await ctx.close();
+
+  const sampleRate = audioBuf.sampleRate;
+  const channels   = Math.min(audioBuf.numberOfChannels, 2);
+  const kbps       = 128;
+
+  const encoder = new lamejs.Mp3Encoder(channels === 2 ? 2 : 1, sampleRate, kbps);
+  const mp3Data  = [];
+
+  const blockSize = 1152;
+  const left  = float32ToInt16(audioBuf.getChannelData(0));
+  const right = channels === 2 ? float32ToInt16(audioBuf.getChannelData(1)) : null;
+
+  for (let i = 0; i < left.length; i += blockSize) {
+    const lChunk = left.subarray(i, i + blockSize);
+    const encoded = right
+      ? encoder.encodeBuffer(lChunk, right.subarray(i, i + blockSize))
+      : encoder.encodeBuffer(lChunk);
+    if (encoded.length > 0) mp3Data.push(new Int8Array(encoded));
+  }
+
+  const flushed = encoder.flush();
+  if (flushed.length > 0) mp3Data.push(new Int8Array(flushed));
+
+  return new Blob(mp3Data, { type: 'audio/mpeg' });
+}
+
+function float32ToInt16(f32) {
+  const out = new Int16Array(f32.length);
+  for (let i = 0; i < f32.length; i++) {
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    out[i]  = s < 0 ? s * 0x8000 : s * 0x7FFF;
+  }
+  return out;
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  LIVE SPEECH (preview while recording)
+// ══════════════════════════════════════════════════════════════════
+function setupLiveSpeech() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) return;
+  recognition = new SR();
+  recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US';
+  recognition.onresult = e => {
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) liveTranscript += e.results[i][0].transcript + ' ';
+      else interim += e.results[i][0].transcript;
+    }
+    document.getElementById('finalText').textContent  = liveTranscript;
+    document.getElementById('interimText').textContent = interim;
+    const box = document.getElementById('transcriptBox');
+    box.scrollTop = box.scrollHeight;
+  };
+  recognition.onerror = e => { if (e.error==='no-speech') return; };
+  recognition.onend   = () => { if (isRecording) try { recognition.start(); } catch(e){} };
+  try { recognition.start(); } catch(e){}
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  RESET FOR NEW STORY
+// ══════════════════════════════════════════════════════════════════
+function resetForNewStory() {
+  liveTranscript = ''; whisperResult = null; storyTitle = null;
+  audioChunks = []; rawAudioBlob = null; mp3Blob = null;
+
+  document.getElementById('finalText').textContent   = '';
+  document.getElementById('interimText').textContent = '';
+  document.getElementById('placeholder').style.display = '';
+  document.getElementById('transcriptBox').style.display = 'block';
+  document.getElementById('processingBox').classList.remove('visible');
+  document.getElementById('newStoryBtn').classList.remove('visible');
+  document.getElementById('recIndicators').classList.remove('visible');
+  document.getElementById('recTimer').textContent = '0:00';
+
+  // Reset steps
+  ['s-mp3','s-transcribe','s-title','s-drive','s-local'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) { el.classList.remove('done','active'); el.style.display=''; }
+  });
+
+  const btn = document.getElementById('mainBtn');
+  btn.style.display = '';
+  btn.className = 'big-btn start';
+  btn.innerHTML = '🎙️ &nbsp;START TALKING<span class="big-btn-sub">Tap to begin your story</span>';
+
+  setStatus('Press the green button and start talking!', '');
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  TIMER
+// ══════════════════════════════════════════════════════════════════
+function startTimer() {
+  let s = 0;
+  timerInterval = setInterval(() => {
+    s++;
+    document.getElementById('recTimer').textContent =
+      `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+  }, 1000);
+}
+function stopTimer() { clearInterval(timerInterval); timerInterval = null; }
+
+// ══════════════════════════════════════════════════════════════════
+//  STEP INDICATORS
+// ══════════════════════════════════════════════════════════════════
+function stepActive(id) { const el=document.getElementById(id); if(el) el.classList.add('active'); }
+function stepDone(id)   { const el=document.getElementById(id); if(el){ el.classList.remove('active'); el.classList.add('done'); } }
+
+// ══════════════════════════════════════════════════════════════════
+//  RENDER STORIES
+// ══════════════════════════════════════════════════════════════════
+function renderStories() {
+  const stories = getStories();
+  const list    = document.getElementById('storiesList');
+  const count   = document.getElementById('storyCount');
+  count.textContent = stories.length===0 ? '' : stories.length===1 ? '1 story saved' : `${stories.length} stories saved`;
+
+  if (!stories.length) {
+    list.innerHTML = '<div class="no-stories">No stories yet — go tell your first one! 🌟</div>';
+    return;
+  }
+
+  let html = `<div style="text-align:center;margin-bottom:20px">
+    <button class="big-btn start" style="max-width:340px;padding:16px 18px;font-size:clamp(1rem,2.8vw,1.3rem);margin-bottom:0" onclick="downloadAllText()">
+      📥 Download All Stories as Text
+    </button>
+  </div>`;
+
+  stories.forEach(s => {
+    const preview  = s.text.length > 300 ? s.text.slice(0,300)+'…' : s.text;
+    const dur      = s.duration ? ` · ~${s.duration} min` : '';
+    const badge    = s.backedUp ? '<span class="drive-badge">☁️ In Drive</span>' : '';
+    const hasAudio = !!s.audioB64;
+
+    html += `<div class="story-card">
+      <div class="story-card-header">
+        <div class="story-title-text">${escH(s.title)}${badge}</div>
+        <div class="story-meta">${s.date} at ${s.time}${dur}</div>
+      </div>
+      <div class="story-text" id="stext-${s.id}">${escH(preview)}</div>
+      ${s.text.length>300 ? `<button class="btn-small btn-dl" style="margin-top:9px;border-color:var(--brown-light);color:var(--brown-light)" onclick="expandStory(${s.id},this)">Read full story ▾</button>` : ''}
+      ${hasAudio ? `<div class="story-audio"><div class="audio-label">🎵 Listen to this story:</div><audio controls src="${s.audioB64}"></audio></div>` : ''}
+      <div class="story-actions">
+        <button class="btn-small btn-dl"       onclick="downloadText(${s.id})">📄 Text</button>
+        ${hasAudio ? `<button class="btn-small btn-dl-audio" onclick="downloadAudio(${s.id})">🎵 MP3</button>` : ''}
+        <button class="btn-small btn-delete"   onclick="deleteStory(${s.id})">🗑️ Delete</button>
+      </div>
+    </div>`;
+  });
+
+  list.innerHTML = html;
+}
+
+function expandStory(id, btn) {
+  const s = getStories().find(x=>x.id===id);
+  if (s) { document.getElementById('stext-'+id).textContent = s.text; btn.remove(); }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  DOWNLOAD & DELETE
+// ══════════════════════════════════════════════════════════════════
+function downloadText(id) {
+  const s = getStories().find(x=>x.id===id);
+  if (!s) return;
+  triggerDownload(
+    new Blob([`${s.title}\n${s.date} at ${s.time}\n${'─'.repeat(60)}\n\n${s.text}\n`],{type:'text/plain'}),
+    safeFilename(s.title)+'.txt'
+  );
+  showToast('📄 Text downloaded!');
+}
+
+function downloadAudio(id) {
+  const s = getStories().find(x=>x.id===id);
+  if (!s?.audioB64) return;
+  const a = document.createElement('a');
+  a.href = s.audioB64; a.download = safeFilename(s.title)+'.mp3'; a.click();
+  showToast('🎵 MP3 downloaded!');
+}
+
+function downloadAllText() {
+  const stories = getStories();
+  if (!stories.length) return;
+  const content = stories.map(s=>`${s.title}\n${s.date} at ${s.time}\n${'─'.repeat(60)}\n\n${s.text}\n`).join('\n'+'═'.repeat(70)+'\n\n');
+  triggerDownload(new Blob([content],{type:'text/plain'}), 'All My Stories.txt');
+  showToast('📚 All stories downloaded!');
+}
+
+function deleteStory(id) {
+  if (!confirm('Delete this story from this device?\n(The Google Drive copy stays safe.)')) return;
+  localStorage.setItem(STORIES_KEY, JSON.stringify(getStories().filter(s=>s.id!==id)));
+  renderStories();
+  showToast('Deleted from this device.');
+}
+
+function triggerDownload(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════════════════
+function getStories()      { try { return JSON.parse(localStorage.getItem(STORIES_KEY)||'[]'); } catch(e){ return []; } }
+function escH(t)           { return (t||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function safeFilename(t)   { return (t||'story').replace(/[/\\?%*:|"<>]/g,'-').slice(0,80); }
+function fallbackTitle(d)  { return `Story — ${d.toLocaleDateString('en-US',{month:'long',day:'numeric',year:'numeric'})}`; }
+function setStatus(msg,cls){ const el=document.getElementById('statusBar'); el.textContent=msg; el.className='status-bar'+(cls?' '+cls:''); }
+function showNote(id,msg,cls){ const el=document.getElementById(id); el.textContent=msg; el.className='status-note '+cls; }
+function blobToBase64(blob) { return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('read')); r.readAsDataURL(blob); }); }
+function showToast(msg) {
+  const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 4200);
+}
+</script>
+</body>
+</html>
